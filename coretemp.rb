@@ -12,22 +12,22 @@ def _parse index
 end
 
 # $dll(cgi,1,coretemp.rb,temp)
-def temp;      
+def temp      
   _parse(1).to_i 
 end   
 
 # $dll(cgi,1,coretemp.rb,low_temp)
-def low_temp;  
+def low_temp
   _parse(4).to_i 
 end
 
 # $dll(cgi,1,coretemp.rb,high_temp)
-def high_temp; 
+def high_temp
   _parse(5).to_i 
 end
 
 # $dll(cgi,1,coretemp.rb,core_load)
-def core_load; 
+def core_load
   _parse(6).to_i 
 end   
 
