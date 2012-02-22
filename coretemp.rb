@@ -8,7 +8,7 @@ $content = open(csv) do |file|
 end
 
 def _parse index
-  values = $content.split("\n")[-2].split(",")[index]
+  $content.split("\n")[-2].split(",")[index]
 end
 
 def temp;      
