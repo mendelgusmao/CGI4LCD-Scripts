@@ -22,7 +22,7 @@ def rss url, type = "t", itemnum = 0, maxfreq = $timeout
 
   items = Simplecache::store(url + type, items) do |content, to_append|
     content += to_append
-    content.compact.uniq.sort_by{ |i| i.first }.reverse.slice(0..10)
+    content.compact.uniq.sort_by{ |i| i.first }.reverse[0..10]
   end
 
   response = ""

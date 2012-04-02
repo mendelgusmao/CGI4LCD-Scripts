@@ -1,87 +1,65 @@
 require "nokogiri"
-require 'open-uri'
 require_relative './simplecache'
 
-$api_key = "YOUR API KEY HERE"
-$user = "YOUR LASTFM USERNAME HERE"
-$timeout = 900
+$api_key = ""
+$timeout = 900 # seconds (15 minutes)
 
 def _request user, method, limit, append = ""
   url = "http://ws.audioscrobbler.com/2.0/?method=%s&user=%s&limit=%s&api_key=%s&%s" % [method, user, limit, $api_key, append]
-  data, missed = cache(url, $timeout)
+  data, missed = Simplecache::cache(url, $timeout)
   [Nokogiri::XML(data), missed]
 end
 
-# $dll(cgi,1,lastfm.rb,recent#<index>)
-def recent index
+# $dll(cgi,1,lastfm.rb,recent#<username>;<index>)
+def recent user, index
 
-  cached_tracks, missed = cache("file://cache/lastfm" + index, 60, true)
+  friends = _request(user, "user.getfriends", 100, "&recenttracks=1").first.xpath("//friends/user")
+  recent_tracks = []
 
-  if missed
+  friends.each do |friend|
+    friend_name = friend.xpath("name").text
+    track = friend.xpath("recenttrack")
 
-    friends = _request($user, "user.getfriends", 100)[0].xpath("//friends/user")
-    recent_tracks = []
+    artist = track.xpath("artist/name").text
+    title = track.xpath("name").text
+    album = track.xpath("album/name").text
+    played = track.xpath("@uts").first.nil? ? 0 : track.xpath("@uts").first.value.to_i
 
-    friends.each do |friend|
-      friend_name = friend.xpath("name").text
-      
-      begin
-        tracks, missed = _request(friend_name, "user.getrecenttracks", 4)
-        tracks = tracks.xpath("//recenttracks/track")
-      rescue
-        next
-      end
-      
-      tracks.each do |track|
-        artist = track.xpath("artist").text
-        title = track.xpath("name").text
-        album = track.xpath("album").text
-        played = track.xpath("date").first.attributes["uts"].value.to_i unless track.xpath("date").empty?
-        
-        recent_tracks << [friend_name, artist, title, album, played]
+    recent_tracks << [friend_name, artist, title, album, played]
+  end
 
-      end
-
-      sleep 1 if missed
-
-    end
-
-    recent_tracks.sort_by! { |a| a.last.to_i }.reverse!
-    cache("file://cache/lastfm" + index, 0, true, Marshal.dump(recent_tracks[0..9]))
-  else
-    recent_tracks = Marshal.load(cached_tracks)
+  recent_tracks = Simplecache::store("lastfm:recent", recent_tracks) do |content, to_append|
+    content += to_append
+    content.compact.uniq.sort_by{ |i| i.last }.reverse[0..10]
   end
 
   "[%s] %s - %s" % recent_tracks[index.to_i]
 
 end
 
-def tasteometer index
+# $dll(cgi,1,lastfm.rb,tasteometer#<username>;<index>)
+def tasteometer user, index
 
-  cached_tracks, missed = cache("file://cache/lastfm/taste" + index, 120, true)
+  friends = _request(user, "user.getfriends", 100).first.xpath("//friends/user")
+  comparisons = []
 
-  if missed
+  friends.each do |friend|
+    friend_name = friend.xpath("name").text
+    
+    comparison, missed = _request(friend_name, "tasteometer.compare", 3, "type1=user&type2=user&value1=%s&value2=%s" % [user, friend_name])
+    bands = comparison.xpath("//comparison/result/artists/artist").map { |e| e.xpath("name") }.join ", "
+    comparison = comparison.xpath("//comparison/result/score").text
+    
+    comparisons << [ friend_name, comparison.to_f * 100, bands ]
 
-    friends = _request($user, "user.getfriends", 100)[0].xpath("//friends/user")
-    comparisons = []
+    # uncomment the line below if last.fm starts blocking requests
+    # sleep 1 if missed
 
-    friends.each do |friend|
-      friend_name = friend.xpath("name").text
-      
-      comparison, missed = _request(friend_name, "tasteometer.compare", 3, "type1=user&type2=user&value1=%s&value2=%s" % [$user, friend_name])
-      bands = comparison.xpath("//comparison/result/artists/artist").map { |e| e.xpath("name") }.join ", "
-      comparison = comparison.xpath("//comparison/result/score").text
-      
-      comparisons << [ friend_name, comparison.to_f * 100, bands ]
+  end
 
-      sleep 1 if missed
-
-    end
-
-    comparisons.sort_by! { |a| a[1] }.reverse!
-    cache("file://cache/lastfm/taste" + index, 0, true, Marshal.dump(comparisons[0..9]))
-  else
-    comparisons = Marshal.load(cached_tracks)
+  comparisons = Simplecache::store("lastfm:tasteometer", comparisons) do |content, to_append|
+    content += to_append
+    content.compact.uniq.sort_by{ |i| i[1] }.reverse[0..10]
   end
 
   "[%s] %02.1f%% (%s)" % comparisons[index.to_i]

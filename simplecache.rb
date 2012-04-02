@@ -4,18 +4,11 @@ require 'open-uri'
 
 class Simplecache
 
-    def self.cache url, timeout = 60, binary = false, forced_content = nil
+    def self.cache url, timeout = 60
         content = ""
         missed = false
         
-        binary = binary ? "b" : ""
-        
         cache_file = [ "cache/", Digest::SHA1.hexdigest(url), ".txt" ].join("")
-
-        unless forced_content.nil?
-          open(cache_file, "w" + binary) { |file| file.write(forced_content) }
-          return forced_content
-        end
 
         if url[/^file:/] and !File::exists?(url)
           url = cache_file 
@@ -27,18 +20,18 @@ class Simplecache
         end
         
         if Time.now - File.new(cache_file).mtime > timeout
-            open(url, "r" + binary) { |file| content = file.read }
-            open(cache_file, "w" + binary) { |file| file.write(content) }
+            open(url, "r") { |file| content = file.read }
+            open(cache_file, "w") { |file| file.write(content) }
             missed = true
         else
-            open(cache_file, "r" + binary) { |file| content = file.read }
+            open(cache_file, "r") { |file| content = file.read }
             missed = false
         end
        
         [content, missed, cache_file]
     end
     
-    def self.store url, to_append, &block
+    def self.store url, to_append = [], &block
 
         cache_file = [ "cache/", Digest::SHA1.hexdigest(url), ".marshal" ].join("")
         
