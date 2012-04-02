@@ -1,5 +1,6 @@
 require 'digest/sha1'
 require 'fileutils'
+require 'open-uri'
 
 class Simplecache
 
@@ -20,7 +21,7 @@ class Simplecache
           url = cache_file 
         end
 
-        if !File::exists?(cache_file)
+        unless File::exists?(cache_file)
             FileUtils::touch([cache_file]) 
             timeout = 0
         end
@@ -37,11 +38,11 @@ class Simplecache
         [content, missed, cache_file]
     end
     
-    def self.store url, to_append = nil, &block
+    def self.store url, to_append, &block
 
-        cache_file = [ "cache/", Digest::SHA1.hexdigest(url), ".txt" ].join("")
+        cache_file = [ "cache/", Digest::SHA1.hexdigest(url), ".marshal" ].join("")
         
-        if !File::exists?(cache_file)
+        unless File::exists?(cache_file)
             FileUtils::touch([cache_file]) 
         end        
         
@@ -53,8 +54,7 @@ class Simplecache
             content = []
         end
         
-        content += to_append
-        content = yield(content) if block_given?
+        content = yield(content, to_append) if block_given?
         
         open(cache_file, "wb") { |file| file.write(Marshal.dump(content)) }
         

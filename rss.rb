@@ -1,5 +1,3 @@
-require 'open-uri'
-require 'fileutils'
 require 'syndication/rss'
 require_relative './simplecache'
 
@@ -13,7 +11,8 @@ def rss url, index = 0
 
   items = feed.items.nil? ? [] : feed.items.map { |item| [item.pubdate, item.title] } 
   
-  items = Simplecache::store("file://cache/rss/" + url, items) do |content|
+  items = Simplecache::store(url, items) do |content, to_append|
+    content += to_append
     content.compact.uniq.sort_by{ |i| i.first }.reverse.slice(0..10)
   end
   
