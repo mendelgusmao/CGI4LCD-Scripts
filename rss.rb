@@ -32,7 +32,7 @@ def rss url, type = "t", itemnum = 0, maxfreq = $timeout
     unless items.nil? or items[itemnum].nil?
       response = items[itemnum].last
     else
-      ""
+      response = ""
     end
   end
 
