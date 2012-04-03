@@ -32,18 +32,15 @@ class Simplecache
   def self.store url, to_append = [], &block
 
     cache_file = [ "cache/", Digest::SHA1.hexdigest(url), ".yaml" ].join("")
-    
-    unless File::exists?(cache_file)
-      FileUtils::touch([cache_file]) 
-    end   
 
-    content = []
-    content = open(cache_file, "r") { |file| YAML::load(file.read) } unless File.new(cache_file).size == 0    
-    content = yield(content, to_append) if block_given?
-    
-    File.open(cache_file, "w") { |file| file.write(YAML::dump(content)) }
-    
-    content
+    open(cache_file, "w+") do |file|
+        content = []
+        YAML::load(file.read) unless file.size == 0    
+        content = yield(content, to_append) if block_given?
+        file.write(YAML::dump(content))
+        content
+    end
+
   end
 
 end  
