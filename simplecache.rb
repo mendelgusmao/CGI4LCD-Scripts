@@ -17,7 +17,7 @@ class Simplecache
     end
     
     if Time.now - File.new(cache_file).mtime > timeout
-      content = (url, "r") { |file| file.read }
+      content = open(url, "r") { |file| file.read }
       open(cache_file, "w") { |file| file.write(content) }
       missed = true
     else
@@ -41,7 +41,7 @@ class Simplecache
     content = open(cache_file, "r") { |file| YAML::load(file.read) } unless File.new(cache_file).size == 0    
     content = yield(content, to_append) if block_given?
     
-    File.open(cache_file, "w") { |file| file.write YAML::dump(content) }
+    File.open(cache_file, "w") { |file| file.write(YAML::dump(content)) }
     
     content
   end
