@@ -11,21 +11,17 @@ class Simplecache
     
     cache_file = [ "cache/", Digest::SHA1.hexdigest(url), ".txt" ].join("")
 
-    if url[/^file:/] and !File::exists?(url)
-      url = cache_file 
-    end
-
     unless File::exists?(cache_file)
       FileUtils::touch([cache_file]) 
       timeout = 0
     end
     
     if Time.now - File.new(cache_file).mtime > timeout
-      open(url, "r") { |file| content = file.read }
+      content = (url, "r") { |file| file.read }
       open(cache_file, "w") { |file| file.write(content) }
       missed = true
     else
-      open(cache_file, "r") { |file| content = file.read }
+      content = open(cache_file, "r") { |file| file.read }
       missed = false
     end
      
