@@ -17,10 +17,10 @@ def rss url, type = "t", itemnum = 0, maxfreq = $timeout
              "d" => item.description, 
              "b" => "%s:%s" % [item.title, item.description] }[type]
 
-    [ item.pubdate, body ]
+    [ item.pubdate.to_time.to_i, body ]
   end
 
-  items = Simplecache::store(url + type, items) do |content, to_append|
+  items = Simplecache::store("%s:%s" % [type, url], items) do |content, to_append|
     content += to_append
     content.compact.uniq.sort_by{ |i| i.first }.reverse[0..10]
   end
