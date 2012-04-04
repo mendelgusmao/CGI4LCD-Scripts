@@ -33,13 +33,19 @@ class Simplecache
 
     cache_file = [ "cache/", Digest::SHA1.hexdigest(url), ".yaml" ].join("")
 
-    open(cache_file, "w+") do |file|
-        content = []
-        YAML::load(file.read) unless file.size == 0    
-        content = yield(content, to_append) if block_given?
-        file.write(YAML::dump(content))
-        content
+    content = []
+
+    open(cache_file, "r") do |file|
+      content = YAML::load(file.read) unless file.size == 0
     end
+    
+    content = yield(content, to_append) if block_given?
+
+    open(cache_file, "w") do |file|
+      file.write(YAML::dump(content))
+    end
+
+    content
 
   end
 
