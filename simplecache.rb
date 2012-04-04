@@ -39,12 +39,14 @@ class Simplecache
       content = YAML::load(file.read) unless file.size == 0
     end
     
-    content = yield(content, to_append) if block_given?
+    filtered_content = yield(content, to_append) if block_given?
 
-    open(cache_file, "w") do |file|
-      file.write(YAML::dump(content))
+    if filtered_content != content
+      open(cache_file, "w") do |file|
+        file.write(YAML::dump(content))
+      end
     end
-
+    
     content
 
   end
