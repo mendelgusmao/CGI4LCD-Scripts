@@ -47,7 +47,7 @@ class Simplecache
       end
     end
 
-    content
+    filtered_content
 
   end
 
