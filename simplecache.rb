@@ -43,10 +43,10 @@ class Simplecache
 
     if filtered_content != content
       open(cache_file, "w") do |file|
-        file.write(YAML::dump(content))
+        file.write(YAML::dump(filtered_content))
       end
     end
-    
+
     content
 
   end
