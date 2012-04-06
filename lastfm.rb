@@ -1,7 +1,7 @@
 require "nokogiri"
 require_relative './simplecache'
 
-$api_key = ""
+$api_key = "6b949cd0b531b1617e92af79343f3b5b"
 $timeout = 900 # seconds (15 minutes)
 
 def _request user, method, limit, append = ""
@@ -59,10 +59,10 @@ def tasteometer user, index
 
   comparisons = Simplecache::store("lastfm:tasteometer", comparisons) do |content, to_append|
     content += to_append
-    content.compact.uniq.sort_by{ |i| i[1] }.reverse[0..10]
+    content.compact.uniq{ |i| i.first }.sort_by{ |i| i[1] }.reverse[0..10]
   end
 
-  "[%s] %02.1f%% (%s)" % comparisons[index.to_i]
+  "[%s] %02.2f%% (%s)" % comparisons[index.to_i]
 
 end
 
