@@ -1,31 +1,31 @@
 require 'open-uri'
-require 'yaml'
 require 'sqlite3'
 
 class Simplecache
 
   @@db = SQLite3::Database.new("cache/simple.s3db")
+  @@db.busy_timeout(500)
 
   begin
     @@db.execute("SELECT url FROM cache LIMIT 1")
   rescue
-    @@db.execute("CREATE TABLE [cache] ([url] TEXT  UNIQUE NOT NULL PRIMARY KEY, [content] TEXT  NULL, [created] TIMESTAMP DEFAULT CURRENT_TIMESTAMP NULL)")
-    @@db.execute("CREATE TABLE [store] ([url] TEXT  NOT NULL, [position] INTEGER  NOT NULL, [content] TEXT  NULL, PRIMARY KEY ([url],[position]))")
+    @@db.execute("CREATE TABLE [cache] ([url] TEXT UNIQUE NOT NULL PRIMARY KEY, [content] TEXT NULL, [created] TIMESTAMP DEFAULT CURRENT_TIMESTAMP NULL)")
+    @@db.execute("CREATE TABLE [store] ([url] TEXT NOT NULL, [position] INTEGER NOT NULL, [content] BLOB NULL)")
   end
   
   def self.cache url, timeout = 60
     content = ""
     missed = false
 
-    rows = @@db.execute("SELECT url, content, created FROM cache WHERE url = ? LIMIT 1", url)
+    cached = @@db.execute("SELECT content, created FROM cache WHERE url = ? LIMIT 1", url).first
 
-    if rows.empty? 
+    if cached.nil? 
       created = Time.now
       timeout = 0
     else
-      content = rows.first[1]
-      rows.first[2] =~ /(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})/
-      created = Time.send(:new, $1, $2, $3, $4, $5, $6.to_i)
+      content = cached.first
+      cached.last =~ /(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})/
+      created = Time.new($1, $2, $3, $4, $5, $6.to_i)
     end
 
     if Time.now - created >= timeout
@@ -39,12 +39,8 @@ class Simplecache
   end
   
   def self.store url, to_append = [], &block
-
-    entries = []
   
-    @@db.execute("SELECT content FROM store WHERE url = ? ORDER BY position", url) do |row|
-      entries << YAML::load(row[0])
-    end  
+    entries = @@db.execute("SELECT content FROM store WHERE url = ? ORDER BY position", url).map { |r| Marshal::load(r.first) }
   
     filtered_entries = yield(entries, to_append) if block_given?
 
@@ -53,7 +49,7 @@ class Simplecache
 
       position = 0
       filtered_entries.each do |entry|
-        @@db.execute("INSERT INTO store (url, position, content) VALUES (?, ?, ?)", url, position, YAML::dump(entry))
+        @@db.execute("INSERT INTO store (url, position, content) VALUES (?, ?, ?)", url, position, Marshal::dump(entry))
         position += 1
       end
       
