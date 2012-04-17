@@ -1,54 +1,66 @@
-require 'digest/sha1'
-require 'fileutils'
 require 'open-uri'
 require 'yaml'
+require 'sqlite3'
 
 class Simplecache
 
+  @@db = SQLite3::Database.new("cache/simple.s3db")
+
+  begin
+    @@db.execute("SELECT url FROM cache LIMIT 1")
+  rescue
+    @@db.execute("CREATE TABLE [cache] ([url] TEXT  UNIQUE NOT NULL PRIMARY KEY, [content] TEXT  NULL, [created] TIMESTAMP DEFAULT CURRENT_TIMESTAMP NULL)")
+    @@db.execute("CREATE TABLE [store] ([url] TEXT  NOT NULL, [position] INTEGER  NOT NULL, [content] TEXT  NULL, PRIMARY KEY ([url],[position]))")
+  end
+  
   def self.cache url, timeout = 60
     content = ""
     missed = false
-    
-    cache_file = [ "cache/", Digest::SHA1.hexdigest(url), ".txt" ].join("")
 
-    unless File::exists?(cache_file)
-      FileUtils::touch([cache_file]) 
+    rows = @@db.execute("SELECT url, content, created FROM cache WHERE url = ? LIMIT 1", url)
+
+    if rows.empty? 
+      created = Time.now
       timeout = 0
+    else
+      content = rows.first[1]
+      rows.first[2] =~ /(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})/
+      created = Time.send(:new, $1, $2, $3, $4, $5, $6.to_i)
+    end
+
+    if Time.now - created >= timeout
+      content = open(url, "r") { |file| file.read }
+      @@db.execute("REPLACE INTO cache (url, content, created) VALUES (?, ?, ?)", url, content, Time.now.to_s) 
+      missed = true
     end
     
-    if Time.now - File.new(cache_file).mtime > timeout
-      content = open(url, "r") { |file| file.read }
-      open(cache_file, "w") { |file| file.write(content) }
-      missed = true
-    else
-      content = open(cache_file, "r") { |file| file.read }
-      missed = false
-    end
-     
-    [content, missed, cache_file]
+    [content, missed]
 
   end
   
   def self.store url, to_append = [], &block
 
-    cache_file = [ "cache/", Digest::SHA1.hexdigest(url), ".yaml" ].join("")
+    entries = []
+  
+    @@db.execute("SELECT content FROM store WHERE url = ? ORDER BY position", url) do |row|
+      entries << YAML::load(row[0])
+    end  
+  
+    filtered_entries = yield(entries, to_append) if block_given?
 
-    content = []
+    if filtered_entries != entries
+      @@db.execute("DELETE FROM store WHERE url = ?", url)
 
-    open(cache_file, "r") do |file|
-      content = YAML::load(file.read) unless file.size == 0
-    end
-    
-    filtered_content = yield(content, to_append) if block_given?
-
-    if filtered_content != content
-      open(cache_file, "w") do |file|
-        file.write(YAML::dump(filtered_content))
+      position = 0
+      filtered_entries.each do |entry|
+        @@db.execute("INSERT INTO store (url, position, content) VALUES (?, ?, ?)", url, position, YAML::dump(entry))
+        position += 1
       end
+      
     end
 
-    filtered_content
+    filtered_entries
 
   end
 
-end  
+end
